@@ -1,0 +1,31 @@
+# Personal configuration and trading records
+.env
+.env.*
+!.env.example
+holdings.txt
+start_active.ps1
+logs/
+research-output/
+replay-output/
+*.log
+*.jsonl
+
+# Python and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generated packages and mobile dependencies
+*.zip
+node_modules/
+.expo/

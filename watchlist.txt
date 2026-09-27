@@ -1,0 +1,96 @@
+# ===== Watchlist =====
+# One ticker per line; lines starting with # are ignored.
+# Canadian names end in .TO (TSX) and cost NO currency conversion from a CAD
+# account; everything else is US-listed, where a ~3% round-trip FX applies to
+# short trades (fine for multi-week holds, bad for day trades).
+# NOTE: the scan fetches every name, so more names = slower scans (the phone
+# scan grows by a few seconds per ticker). Delete any line you don't watch.
+
+# --- US mega-cap tech / growth (volatile; usually trend strategy) ---
+AAPL
+MSFT
+NVDA
+AMD
+AMZN
+META
+TSLA
+GOOGL
+NFLX
+ORCL
+CRM
+AVGO
+QCOM
+
+# --- US long-term compounders / blue chips (better as long holds) ---
+BRK-B
+V
+MA
+COST
+HD
+UNH
+LLY
+JPM
+XOM
+CVX
+DIS
+
+# --- Space / aerospace (SpaceX is PRIVATE and cannot be bought; these are the
+#     public, tradeable names with space / defense exposure) ---
+RKLB
+LMT
+RTX
+BA
+NOC
+
+# --- Canadian banks (FX-free) ---
+RY.TO
+TD.TO
+BMO.TO
+BNS.TO
+CM.TO
+NA.TO
+
+# --- Canadian blue chips / compounders (FX-free; good long-term options) ---
+ATD.TO
+CNR.TO
+CP.TO
+SU.TO
+CNQ.TO
+TRP.TO
+ENB.TO
+FTS.TO
+T.TO
+BCE.TO
+SHOP.TO
+BN.TO
+BAM.TO
+QSR.TO
+L.TO
+CTC-A.TO
+MFC.TO
+SLF.TO
+NTR.TO
+WCN.TO
+DOL.TO
+WSP.TO
+
+# --- US consumer staples / defensives (calm; usually mean-reversion strategy) ---
+KO
+PG
+JNJ
+WMT
+MCD
+PEP
+
+# --- Broad / dividend / bond ETFs for long-term core holds ---
+# FX-free (Canadian-listed) - ideal buy-and-hold cores; no earnings-gap risk.
+VFV.TO
+XEQT.TO
+XIU.TO
+VDY.TO
+XGRO.TO
+ZAG.TO
+# US-listed ETFs (carry FX, but deep/liquid long-term options)
+SPY
+QQQ
+SCHD

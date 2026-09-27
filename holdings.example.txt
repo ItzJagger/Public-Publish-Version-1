@@ -1,0 +1,3 @@
+# Fictional example only; no personal holdings are included.
+# TICKER ENTRY BUY_DATE MODE(intraday|swing|long) [FLOOR] [CEILING]
+# DEMO 100.00 2026-01-05 long 95.00 110.00
