@@ -29,3 +29,6 @@ Thumbs.db
 *.zip
 node_modules/
 .expo/
+
+# Private signal performance records
+tracking/

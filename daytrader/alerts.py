@@ -88,7 +88,7 @@ def format_buy_alert(candidates: list[dict], now) -> tuple[str, str]:
     return format_categorized_alert(candidates, [], now)
 
 
-def _compact_stock(r, now, short):
+def alert_plan(r, now, short):
     from .trade_plan import broker_levels, size_example, sell_by, eastern
     gate = r.get('eligibility', {}).get('buy-now', {}) if short else r
     rec = r.get('rec') or {}
@@ -106,6 +106,12 @@ def _compact_stock(r, now, short):
     deadline = gate.get('sell_by')
     if not deadline:
         deadline = sell_by(r['ticker'], now, minutes=risk.get('hold_bars',4)*15) if short else sell_by(r['ticker'],now,sessions=r.get('hold_weeks',4)*5)
+    return order, size, deadline
+
+
+def _compact_stock(r, now, short):
+    from .trade_plan import eastern
+    order, size, deadline = alert_plan(r, now, short)
     when = eastern(deadline).strftime('%Y-%m-%d %H:%M ET') if deadline is not None else 'unavailable - do not enter'
     currency = 'CAD' if r['ticker'].upper().endswith('.TO') else 'USD'
     quantity = (f"{size['shares']} whole shares (~CAD ${size['capital']:.2f})" if size.get('eligible')

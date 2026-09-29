@@ -33,6 +33,7 @@ from pathlib import Path
 from daytrader.trade_plan import exchange, eastern
 from daytrader.eligibility import attach_eligibility
 from daytrader.policy import SIGNAL_PROFILE
+from daytrader.tracker import SignalTracker
 from daytrader.diagnostics import diagnostic_lines
 
 from daytrader.alerts import (
@@ -66,6 +67,16 @@ def run_watch(interval_min: int = 1, long_interval_min: int = 240, alerts: str =
     if interval_min <= 0 or long_interval_min <= 0 or closed_sleep_min <= 0:
         raise ValueError('Scan intervals must be positive')
     config=notification_config()
+    tracker=SignalTracker() if config['kind'] in ('ntfy','webhook') else None
+    print('BUY tracker: active; local reports in tracking/reports (5-minute updates).' if tracker else 'BUY tracker: console-only alerts are not recorded.')
+    def track(row, sent_at, short, message):
+        if tracker is not None:
+            try:tracker.record(row,sent_at,short,message)
+            except Exception as exc:print(f'TRACKER RECORD ERROR: {exc}')
+    def update_tracker(now):
+        if tracker is not None:
+            try:tracker.update(now)
+            except Exception as exc:print(f'TRACKER UPDATE ERROR: {exc}')
     want_short=alerts in ('both','short');want_long=alerts in ('both','long')
     print(f"Watcher started. Alerts via: {config['kind']} ({config.get('target')})")
     print(f"Signal profile: {SIGNAL_PROFILE}; short check {interval_min} min; long check {long_interval_min} min.")
@@ -100,12 +111,14 @@ def run_watch(interval_min: int = 1, long_interval_min: int = 240, alerts: str =
     while True:
         cycle_start=market_now()
         if not market_is_open(cycle_start):
+            update_tracker(cycle_start)
             print(f"{describe_now(cycle_start)} - market closed, waiting.")
             if once:return
             time.sleep(closed_wait_seconds(cycle_start,closed_sleep_min));continue
         do_long=want_long and (last_long_check is None or
                  (cycle_start-last_long_check).total_seconds()>=long_interval_min*60)
         if not want_short and not do_long:
+            update_tracker(cycle_start)
             if once:return
             time.sleep(max(1,min(interval_min*60,long_interval_min*60-(cycle_start-last_long_check).total_seconds())))
             continue
@@ -120,6 +133,7 @@ def run_watch(interval_min: int = 1, long_interval_min: int = 240, alerts: str =
                 for r in shorts:
                     title,message=format_categorized_alert([r],[],now)
                     if send_notification(title,message,config):
+                        track(r,market_now(),True,message)
                         already.add(r['ticker'].upper())
                         print(f"{describe_now(now)} - ALERTED: {r['ticker']}(S)")
                     else:print(f"{r['ticker']}: delivery failed; cooldown not recorded. Will retry if still eligible.")
@@ -141,12 +155,14 @@ def run_watch(interval_min: int = 1, long_interval_min: int = 240, alerts: str =
                     if last is not None and (now.date()-last).days<long_cooldown_days:continue
                     title,message=format_categorized_alert([],[r],now)
                     if send_notification(title,message,config):
+                        track(r,market_now(),False,message)
                         long_last_alert[tk]=now.date();bought.add(tk)
                         print(f"{describe_now(now)} - ALERTED: {tk}(L)")
                     else:print(f"{tk}: delivery failed; cooldown not recorded.")
                 notices(results,now,'position',bought)
         except Exception as exc:
             print(f"{describe_now(market_now())} - scan error (will retry): {exc}")
+        update_tracker(market_now())
         if once:return
         # Count scan time in the interval, instead of adding it to every cycle.
         elapsed=(market_now()-cycle_start).total_seconds()

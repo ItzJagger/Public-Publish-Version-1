@@ -14,6 +14,7 @@ A Python stock-screening and decision-support project for manual traders. It com
 - Calculates entry levels, position sizes, stop-limit fields, profit targets and sell-by deadlines.
 - Checks trading costs, currency conversion, liquidity, data freshness and earnings dates.
 - Tracks user-recorded holdings and their planned exits.
+- Records delivered BUY alerts and follows their simulated performance through the sell-by deadline, with daily text and CSV reports.
 - Presents results through a command-line interface, a local web dashboard and optional phone notifications.
 
 ## How it works
@@ -28,7 +29,8 @@ The active profile uses five-minute candles for entry signals and fifteen-minute
 | --- | --- |
 | `daytrader/` | Data processing, indicators, strategies, risk checks and alerts |
 | `scan.py` | Watchlist scanning and decision summaries |
-| `watch.py` | Scheduled scans and notifications |
+| `watch.py` | Scheduled scans, notifications and automatic performance tracking |
+| `signal_report.py` | Daily reports for locally recorded BUY alerts |
 | `server.py` | Local web dashboard and JSON API |
 | `mobile/` | Companion mobile interface source |
 | `backtest_report.py`, `research_active.py` | Historical research and diagnostic replays |
@@ -37,5 +39,7 @@ The active profile uses five-minute candles for entry signals and fifteen-minute
 ## Project status
 
 Under active development and private evaluation. This public snapshot showcases the source code; installation and deployment instructions are intentionally omitted. Personal holdings, notification settings and private trading logs are excluded.
+
+Performance records persist locally across restarts and are excluded from version control. Reports distinguish price-level touches from actual fills and flag missing or ambiguous data. The entry proxy uses an eligible completed five-minute bar opening within 15 minutes after notification; it does not assume intrabar fills. Estimated net results describe holding to the latest or deadline price, not execution at a touched stop or target. Tracking is observational and does not train or modify the strategies.
 
 The program does not place orders. Signals and historical research are not guarantees of future returns, and stop-limit orders may not fill during rapid price changes. All trading decisions and execution remain with the user.
