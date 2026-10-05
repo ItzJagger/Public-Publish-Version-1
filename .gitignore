@@ -32,3 +32,8 @@ node_modules/
 
 # Private signal performance records
 tracking/
+
+# Local upgrade instructions and generated SQLite journals
+LOCAL-UPDATE-GUIDE.txt
+*.sqlite3
+*.sqlite3-*

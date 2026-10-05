@@ -34,6 +34,7 @@ from daytrader.trade_plan import exchange, eastern
 from daytrader.eligibility import attach_eligibility
 from daytrader.policy import SIGNAL_PROFILE
 from daytrader.tracker import SignalTracker
+from daytrader.daily_review import DailyReview, next_report_seconds
 from daytrader.diagnostics import diagnostic_lines
 
 from daytrader.alerts import (
@@ -45,7 +46,7 @@ from daytrader.playbook import buy_now_candidates
 
 def closed_wait_seconds(now, maximum_minutes=30):
     # Never sleep through the next exchange opening.
-    waits = [maximum_minutes*60]
+    waits = [maximum_minutes*60, next_report_seconds(now)]
     for ticker in ('SPY','XIU.TO'):
         cal = exchange(ticker)
         date = cal.date_to_session(str(now.date()), direction='next')
@@ -67,16 +68,19 @@ def run_watch(interval_min: int = 1, long_interval_min: int = 240, alerts: str =
     if interval_min <= 0 or long_interval_min <= 0 or closed_sleep_min <= 0:
         raise ValueError('Scan intervals must be positive')
     config=notification_config()
-    tracker=SignalTracker() if config['kind'] in ('ntfy','webhook') else None
-    print('BUY tracker: active; local reports in tracking/reports (5-minute updates).' if tracker else 'BUY tracker: console-only alerts are not recorded.')
+    tracker=SignalTracker()
+    daily_review=DailyReview(tracker)
+    print('BUY tracker: delivered alerts tracked every 5 minutes; daily charts/reports at 17:00 Eastern in tracking/daily. Console-only alerts are not recorded.')
     def track(row, sent_at, short, message):
-        if tracker is not None:
+        if config['kind'] in ('ntfy','webhook'):
             try:tracker.record(row,sent_at,short,message)
             except Exception as exc:print(f'TRACKER RECORD ERROR: {exc}')
     def update_tracker(now):
         if tracker is not None:
             try:tracker.update(now)
             except Exception as exc:print(f'TRACKER UPDATE ERROR: {exc}')
+        try:daily_review.run_due(now)
+        except Exception as exc:print(f'DAILY REPORT ERROR (will retry): {exc}')
     want_short=alerts in ('both','short');want_long=alerts in ('both','long')
     print(f"Watcher started. Alerts via: {config['kind']} ({config.get('target')})")
     print(f"Signal profile: {SIGNAL_PROFILE}; short check {interval_min} min; long check {long_interval_min} min.")

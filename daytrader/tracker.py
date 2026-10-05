@@ -1,4 +1,4 @@
-"""Persistent, observational BUY-alert tracking. No orders or model training.
+"""Persistent, observational BUY-alert tracking. No orders; daily reports feed a separate shadow learner.
 
 Uses completed 5m OHLCV; entry is a bar-open proxy during a fixed 15-minute
 window after delivery. Bars overlapping notification time are excluded.
@@ -52,18 +52,33 @@ class SignalTracker:
                 'currency':'CAD' if row['ticker'].endswith('.TO') else 'USD',
                 'cost_pct':round_trip_cost(row['ticker']), 'strategy':row.get('strategy'),
                 'message':message,'status':'PENDING','data_error':None}
+        from .learning import snapshot, shadow_prediction
+        record['signal_price'] = float(row.get('last_price', row.get('price', row.get('current_price',
+                                      (row.get('rec') or {}).get('current_price', order['entry'])))))
+        record['signal_candle_price'] = row.get('signal_price', (row.get('rec') or {}).get('current_price'))
+        record['signal_version'] = row.get('signal_version', 'patterns-v8')
+        record['features'] = snapshot(row, order, at, record['cost_pct'])
+        record['entry_checks'] = row.get('entry_checks', {})
+        try:
+            record['prediction'] = shadow_prediction(self.directory, mode, record['features'], at)
+        except (ValueError, KeyError, OSError, TypeError):
+            record['prediction'] = None
         if stamp(deadline)<=at:raise ValueError('Tracker deadline precedes notification')
         with self.connect() as db:
             db.execute('INSERT OR IGNORE INTO signals VALUES (?,?)',(key,json.dumps(record)))
         return key
 
-    def update(self, now, fetch=fetch_intraday, force=False):
+    def update(self, now, fetch=fetch_intraday, force=False, include_day=None):
         now=stamp(now)
         if not force and self.last_update is not None and (now-self.last_update).total_seconds()<300:return
         self.last_update=now
         records=self.records()
         active=[r for r in records if r['status'] not in ('COMPLETE','INCOMPLETE')]
-        for ticker in sorted({r['ticker'] for r in active}):
+        requested = list(active)
+        if include_day is not None:
+            requested += [r for r in records if stamp(r['alert_at']).date() <= include_day
+                          and stamp(r['deadline']).date() >= include_day]
+        for ticker in sorted({r['ticker'] for r in requested}):
             try:
                 data=completed_bars(fetch(ticker,period='60d',interval='5m'),'5m',now)
                 # Completed data is validated before merging into durable history.
@@ -83,6 +98,12 @@ class SignalTracker:
                 if now>=stamp(r['deadline'])+pd.Timedelta(days=1) and r['status']!='COMPLETE':r['status']='INCOMPLETE'
                 with self.connect() as db:db.execute('UPDATE signals SET payload=? WHERE id=?',(json.dumps(r),r['id']))
         self.write_reports()
+
+    def cached_bars(self, ticker):
+        with self.connect() as db:
+            rows = list(db.execute('SELECT time,payload FROM bars WHERE ticker=? ORDER BY time', (ticker,)))
+        return pd.DataFrame([json.loads(r[1]) for r in rows],
+                            index=pd.DatetimeIndex([stamp(r[0]) for r in rows])).sort_index()
 
     def write_reports(self):
         groups={}
@@ -132,6 +153,8 @@ def evaluate(r, bars, now):
     complete=now>=deadline+pd.Timedelta(seconds=5)
     out={'status':('COMPLETE' if not missing and len(expected) else 'AWAITING_DATA') if complete else 'OPEN',
          'missing_bars':missing,'entry_status':'WAITING','entry_proxy':None,'entry_at':None,
+         'peak_price':None,'floor_price':None,'peak_at':None,'floor_at':None,
+         'gross_proxy':None,'estimated_cost':None,'net_return_pct':None,
          'net_proxy':None,'first_touch':None,'target_touch':None,'stop_touch':None,
          'max_rise_pct':None,'max_drop_pct':None,'change_pct':None,'alert_change_pct':None,'last_price':None,'last_at':None}
     if frame.empty:return out
@@ -162,8 +185,13 @@ def evaluate(r, bars, now):
     else:out['first_touch']='NEITHER'
     out['change_pct']=(out['last_price']/entry-1)*100
     if not missing:
+        out.update(peak_price=float(path.High.max()), floor_price=float(path.Low.min()),
+                   peak_at=path.High.idxmax().isoformat(), floor_at=path.Low.idxmin().isoformat(),
+                   net_return_pct=out['change_pct']-r['cost_pct'])
         out['max_rise_pct']=max(0.,(float(path.High.max())/entry-1)*100)
         out['max_drop_pct']=min(0.,(float(path.Low.min())/entry-1)*100)
         if r.get('shares'):
-            out['net_proxy']=(out['last_price']-entry-entry*r['cost_pct']/100)*r['shares']
+            out['gross_proxy']=(out['last_price']-entry)*r['shares']
+            out['estimated_cost']=entry*r['cost_pct']/100*r['shares']
+            out['net_proxy']=out['gross_proxy']-out['estimated_cost']
     return out

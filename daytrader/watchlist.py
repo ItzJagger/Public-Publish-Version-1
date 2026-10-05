@@ -132,7 +132,8 @@ def _scan_ticker(
     sl = atr_stop['floor_pct']
     # An entry signal is not a hypothetical holding. Real positions live in holdings.txt.
     rec = {'status':'BUY_NOW' if raw_buy else 'FLAT', 'as_of':df.index[-1],
-           'current_price':current_price, 'rsi':float(latest['rsi']), 'vwap':float(latest['vwap'])}
+           'current_price':current_price, 'rsi':float(latest['rsi']), 'vwap':float(latest['vwap']),
+           'relative_volume':float(latest.get('relative_volume', float('nan')))}
     if raw_buy:
         rec.update(entry_time=df.index[-1], entry_price=current_price, unrealized_pct=0.,
                    floor_price=atr_stop['floor'], ceiling_price=atr_stop['ceiling'])
